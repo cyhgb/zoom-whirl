@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zoom-Whirl Orbits — Schwarzschild Geodesics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #06070d;
+    --bg-panel: #0c0e18;
+    --bg-panel-2: #10121f;
+    --line: #23263a;
+    --line-soft: #191b2a;
+    --ink: #e8e9f2;
+    --ink-dim: #9497b0;
+    --ink-faint: #5c5f78;
+    --ember: #ff8a3d;
+    --ember-dim: #a85a28;
+    --cyan: #5fd8d4;
+    --cyan-dim: #2c6b69;
+    --violet: #8b8fd9;
+    --danger: #ff5f5f;
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  body{
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  .display{ font-family:"Fraunces", Georgia, serif; }
+  .mono{ font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; }
+
+  .wrap{
+    max-width:1180px; margin:0 auto; padding:28px 20px 60px;
+  }
+  header{
+    display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 18px;
+    border-bottom:1px solid var(--line); padding-bottom:18px; margin-bottom:22px;
+  }
+  h1{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600; font-size:clamp(26px,4vw,38px);
+    font-optical-sizing:auto;
+    margin:0; letter-spacing:-0.01em;
+    color:var(--ink);
+  }
+  h1 em{ font-style:italic; color:var(--ember); }
+  .tagline{
+    color:var(--ink-dim); font-size:14px; max-width:520px; line-height:1.5;
+    margin:0;
+  }
+
+  .layout{
+    display:grid; grid-template-columns:1.35fr 1fr; gap:20px;
+  }
+  @media (max-width:860px){ .layout{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px;
+  }
+
+  .stage-panel{ position:relative; overflow:hidden; }
+  #orbitCanvas{ width:100%; height:auto; display:block; border-radius:2px; }
+
+  .status-row{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:12px; gap:10px; flex-wrap:wrap;
+  }
+  .status-pill{
+    font-family:"IBM Plex Mono", monospace; font-size:12px;
+    padding:4px 10px; border-radius:20px; border:1px solid var(--line);
+    color:var(--ink-dim); background:var(--bg-panel-2);
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .status-pill .dot{ width:6px; height:6px; border-radius:50%; background:var(--ink-faint); }
+  .status-pill.whirl .dot{ background:var(--ember); box-shadow:0 0 6px var(--ember); }
+  .status-pill.zoom .dot{ background:var(--cyan); box-shadow:0 0 6px var(--cyan); }
+  .status-pill.plunge .dot{ background:var(--danger); box-shadow:0 0 6px var(--danger); }
+
+  .readouts{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+    background:var(--line); border:1px solid var(--line); border-radius:2px;
+    overflow:hidden; margin-top:12px;
+  }
+  .readout{ background:var(--bg-panel-2); padding:9px 12px; }
+  .readout .k{ font-size:10.5px; color:var(--ink-faint); text-transform:lowercase; }
+  .readout .v{ font-family:"IBM Plex Mono", monospace; font-size:15px; color:var(--ink); margin-top:2px; }
+
+  .legend{ display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; font-size:11.5px; color:var(--ink-faint); }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .swatch{ width:12px; height:2px; display:inline-block; }
+
+  .section-title{
+    font-size:11px; letter-spacing:0.02em; color:var(--ink-faint);
+    margin:0 0 10px 0; padding-bottom:8px; border-bottom:1px solid var(--line-soft);
+  }
+
+  .field{ margin-bottom:18px; }
+  .field-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .field-label{ font-size:13px; color:var(--ink); }
+  .field-value{ font-family:"IBM Plex Mono", monospace; font-size:13px; color:var(--cyan); }
+  .field-note{ font-size:11.5px; color:var(--ink-faint); margin-top:5px; line-height:1.4; }
+
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:2px; background:var(--line);
+    border-radius:2px; outline:none; margin:8px 0;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--ink); border:2px solid var(--bg-panel); cursor:pointer;
+    box-shadow:0 0 0 1px var(--line);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background:var(--ink);
+    border:2px solid var(--bg-panel); cursor:pointer;
+  }
+
+  .btnrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+  button{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:12.5px; padding:8px 13px; border-radius:2px;
+    border:1px solid var(--line); background:var(--bg-panel-2); color:var(--ink);
+    cursor:pointer; transition:border-color .15s, color .15s;
+  }
+  button:hover{ border-color:var(--ink-faint); }
+  button.primary{ background:var(--ember); border-color:var(--ember); color:#1a0e02; font-weight:600; }
+  button.primary:hover{ background:#ff9a54; }
+  button.ghost{ background:transparent; }
+  button.danger-ghost{ color:var(--danger); border-color:var(--ember-dim); }
+  button:disabled{ opacity:.4; cursor:default; }
+  button:focus-visible, input:focus-visible{ outline:2px solid var(--cyan); outline-offset:2px; }
+
+  .presets{ display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:6px; }
+  .presets button{ text-align:left; font-size:11.5px; padding:8px 10px; }
+  .presets button .p-name{ display:block; color:var(--ink); font-weight:500; }
+  .presets button .p-sub{ display:block; color:var(--ink-faint); font-size:10.5px; margin-top:1px; }
+
+  .chart-panel canvas{ width:100%; height:110px; display:block; }
+  .chart-caption{ font-size:11px; color:var(--ink-faint); margin-top:6px; line-height:1.5; }
+
+  .divider{ height:1px; background:var(--line-soft); margin:18px 0; }
+
+  footer{
+    margin-top:26px; padding-top:16px; border-top:1px solid var(--line);
+    font-size:11.5px; color:var(--ink-faint); line-height:1.6;
+  }
+  footer code{ font-family:"IBM Plex Mono",monospace; color:var(--ink-dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Zoom<span style="color:var(--ink-faint)">-</span><em>Whirl</em> Orbits</h1>
+    <p class="tagline">A test particle on a Schwarzschild geodesic, released just outside an unstable circular orbit. Integrated directly from the relativistic orbit equation — no Newtonian approximation.</p>
+  </header>
+
+  <div class="layout">
+
+    <!-- LEFT: ORBIT STAGE -->
+    <div class="panel stage-panel">
+      <div class="status-row">
+        <span class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">idle</span></span>
+        <div class="btnrow">
+          <button class="ghost" id="btnStep">step</button>
+          <button class="primary" id="btnPlay">play</button>
+          <button class="ghost" id="btnReset">restart</button>
+        </div>
+      </div>
+
+      <canvas id="orbitCanvas" width="1000" height="720"></canvas>
+
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--ink-faint)"></span>event horizon (r = 2M)</span>
+        <span><span class="swatch" style="background:var(--violet)"></span>photon sphere (r = 3M)</span>
+        <span><span class="swatch" style="background:var(--ink-faint);opacity:.5"></span>ISCO (r = 6M)</span>
+        <span><span class="swatch" style="background:var(--ember)"></span>unstable circular radius</span>
+        <span><span class="swatch" style="background:var(--cyan)"></span>particle path</span>
+      </div>
+
+      <div class="readouts">
+        <div class="readout"><div class="k">r / M</div><div class="v" id="roR">—</div></div>
+        <div class="readout"><div class="k">revolutions (φ / 2π)</div><div class="v" id="roPhi">—</div></div>
+        <div class="readout"><div class="k">closest approach</div><div class="v" id="roMin">—</div></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: CONTROLS -->
+    <div>
+      <div class="panel">
+        <p class="section-title">orbital parameters</p>
+
+        <div class="field">
+          <div class="field-head">
+            <span class="field-label">Angular momentum, L / GMc</span>
+            <span class="field-value" id="lVal">3.75</span>
+          </div>
+          <input type="range" id="lSlider" min="3.47" max="4.6" step="0.01" value="3.75">
+          <div class="field-note">L must exceed √12 ≈ 3.464 for any circular orbit to exist. Larger L pulls the unstable radius in toward the photon sphere.</div>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <span class="field-label">Periapsis proximity, ε</span>
+            <span class="field-value" id="epsVal">0.032</span>
+          </div>
+          <input type="range" id="epsSlider" min="-4" max="-0.4" step="0.01" value="-1.5">
+          <div class="field-note">How close the innermost approach starts to the unstable circular radius. Smaller ε → more whirl loops before the orbit escapes (or falls in).</div>
+        </div>
+
+        <div class="btnrow" style="margin-bottom:4px;">
+          <button id="btnPlungeToggle">nudge inward instead (plunge)</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <p class="section-title">presets</p>
+        <div class="presets">
+          <button data-preset="mild"><span class="p-name">Mild precession</span><span class="p-sub">L 3.9, ε 0.25</span></button>
+          <button data-preset="whirl"><span class="p-name">Classic whirl</span><span class="p-sub">L 3.75, ε 0.02</span></button>
+          <button data-preset="tight"><span class="p-name">Tight whirl</span><span class="p-sub">L 3.60, ε 0.003</span></button>
+          <button data-preset="plunge"><span class="p-name">Just inside — capture</span><span class="p-sub">L 3.70, ε −0.01</span></button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="field" style="margin-bottom:6px;">
+          <div class="field-head">
+            <span class="field-label">Playback speed</span>
+            <span class="field-value" id="speedVal">1.5×</span>
+          </div>
+          <input type="range" id="speedSlider" min="0.2" max="6" step="0.1" value="1.5">
+        </div>
+      </div>
+
+      <div class="panel chart-panel" style="margin-top:16px;">
+        <p class="section-title">r(φ) — the zoom-whirl signature</p>
+        <canvas id="chartCanvas" width="600" height="220"></canvas>
+        <p class="chart-caption">Flat, level stretches are whirl phases — the particle loops near the unstable circular radius. Sharp excursions are the zoom out to (and back from) apoapsis.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Integrated in Schwarzschild coordinates, equatorial plane, units G = c = M = 1, from
+    <code>d²u/dφ² = 1/L² − u + 3u²</code> where u = 1/r — RK4, fixed step. The cubic 3u² term is the
+    general-relativistic correction absent from the Newtonian orbit equation; it is what makes an unstable
+    circular orbit — and zoom-whirl behavior — possible at all.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- DOM ----------
+  const canvas = document.getElementById('orbitCanvas');
+  const ctx = canvas.getContext('2d');
+  const chartCanvas = document.getElementById('chartCanvas');
+  const chartCtx = chartCanvas.getContext('2d');
+
+  const lSlider = document.getElementById('lSlider');
+  const epsSlider = document.getElementById('epsSlider');
+  const lVal = document.getElementById('lVal');
+  const epsVal = document.getElementById('epsVal');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedVal = document.getElementById('speedVal');
+  const btnPlay = document.getElementById('btnPlay');
+  const btnStep = document.getElementById('btnStep');
+  const btnReset = document.getElementById('btnReset');
+  const btnPlungeToggle = document.getElementById('btnPlungeToggle');
+  const statusPill = document.getElementById('statusPill');
+  const statusText = document.getElementById('statusText');
+  const roR = document.getElementById('roR');
+  const roPhi = document.getElementById('roPhi');
+  const roMin = document.getElementById('roMin');
+
+  let plungeMode = false;
+
+  // ---------- physics ----------
+  const R_HORIZON = 2, R_PHOTON = 3, R_ISCO = 6;
+
+  function computeUnstable(L){
+    const disc = 1 - 12/(L*L);
+    if (disc < 0) return null;
+    const sq = Math.sqrt(disc);
+    const uPlus = (1 + sq)/6;
+    return { uPlus, rUnstable: 1/uPlus };
+  }
+
+  function deriv(L, u, v){
+    return [v, 1/(L*L) - u + 3*u*u];
+  }
+
+  function integrate(L, epsSigned){
+    const info = computeUnstable(L);
+    if (!info) return null;
+    const rU = info.rUnstable;
+    const r0 = rU * (1 + epsSigned);
+    if (r0 <= R_HORIZON*1.01) return null;
+
+    let u = 1/r0, v = 0, phi = 0;
+    const h = 0.01;
+    const maxSteps = 150000;
+    const pts = [{u, phi, r: 1/u}];
+    let turningPoints = 0;
+    let prevV = v;
+    let status = 'running';
+    let rMinSeen = r0, rMaxSeen = r0;
+
+    for (let i=0; i<maxSteps; i++){
+      const k1 = deriv(L, u, v);
+      const k2 = deriv(L, u + h/2*k1[0], v + h/2*k1[1]);
+      const k3 = deriv(L, u + h/2*k2[0], v + h/2*k2[1]);
+      const k4 = deriv(L, u + h*k3[0], v + h*k3[1]);
+      u = u + h/6*(k1[0] + 2*k2[0] + 2*k3[0] + k4[0]);
+      v = v + h/6*(k1[1] + 2*k2[1] + 2*k3[1] + k4[1]);
+      phi += h;
+
+      if (!isFinite(u) || u < 0.0005){ status = 'escaped'; break; }
+      if (u >= 0.5){ status = 'plunged'; pts.push({u:0.5, phi, r: R_HORIZON}); break; }
+
+      const r = 1/u;
+      if (r < rMinSeen) rMinSeen = r;
+      if (r > rMaxSeen) rMaxSeen = r;
+
+      // detect turning point (sign change of v)
+      if ((prevV < 0 && v >= 0) || (prevV > 0 && v <= 0)) {
+        turningPoints++;
+      }
+      prevV = v;
+
+      pts.push({u, phi, r});
+
+      if (turningPoints >= 3 && status === 'running'){ status = 'complete'; break; }
+      if (i === maxSteps-1) status = 'capped';
+    }
+
+    return { pts, status, rUnstable: rU, rMin: rMinSeen, rMax: rMaxSeen, L };
+  }
+
+  // ---------- state ----------
+  let orbit = null;
+  let animIndex = 0;
+  let playing = false;
+  let lastTs = null;
+  let renderPts = []; // decimated for drawing
+
+  function decimate(pts, target){
+    if (pts.length <= target) return pts;
+    const step = pts.length / target;
+    const out = [];
+    for (let i=0; i<target; i++) out.push(pts[Math.floor(i*step)]);
+    out.push(pts[pts.length-1]);
+    return out;
+  }
+
+  function currentEpsMagnitude(){
+    return Math.pow(10, parseFloat(epsSlider.value));
+  }
+
+  function recompute(){
+    const L = parseFloat(lSlider.value);
+    const magnitude = currentEpsMagnitude();
+    const epsSigned = plungeMode ? -magnitude : magnitude;
+    lVal.textContent = L.toFixed(2);
+    epsVal.textContent = (plungeMode ? '−' : '') + magnitude.toFixed(magnitude < 0.01 ? 4 : 3);
+
+    orbit = integrate(L, epsSigned);
+    animIndex = 0;
+    playing = false;
+    btnPlay.textContent = 'play';
+    updatePlungeButtonUI();
+
+    if (!orbit){
+      renderPts = [];
+      drawStage();
+      drawChart();
+      setStatus('invalid', 'no valid orbit for these parameters');
+      roR.textContent = '—'; roPhi.textContent = '—'; roMin.textContent = '—';
+      return;
+    }
+    renderPts = decimate(orbit.pts, 6000);
+    drawStage();
+    drawChart();
+    setStatus('idle', orbit.status === 'plunged' ? 'ready — ends in capture' : 'ready');
+    updateReadouts(0);
+  }
+
+  function updatePlungeButtonUI(){
+    btnPlungeToggle.textContent = plungeMode ? 'return to stable whirl' : 'nudge inward instead (plunge)';
+    btnPlungeToggle.style.color = plungeMode ? 'var(--danger)' : '';
+  }
+
+  function setStatus(kind, text){
+    statusPill.className = 'status-pill' + (kind === 'whirl' ? ' whirl' : kind === 'zoom' ? ' zoom' : kind === 'plunged' ? ' plunge' : '');
+    statusText.textContent = text;
+  }
+
+  function classifyPoint(p, rUnstable){
+    if (!p) return ['idle','—'];
+    const ratio = p.r / rUnstable;
+    if (ratio < 1.03) return ['whirl', 'whirling near r ≈ ' + rUnstable.toFixed(2) + 'M'];
+    if (ratio < 1.6) return ['zoom', 'peeling away'];
+    return ['zoom', 'zooming out'];
+  }
+
+  function updateReadouts(idx){
+    if (!orbit || renderPts.length === 0) return;
+    const p = renderPts[Math.min(idx, renderPts.length-1)];
+    roR.textContent = p.r.toFixed(3);
+    roPhi.textContent = (p.phi / (2*Math.PI)).toFixed(2);
+    roMin.textContent = orbit.rMin.toFixed(3) + 'M';
+
+    const isLast = idx >= renderPts.length - 1;
+    if (isLast && orbit.status === 'plunged'){
+      setStatus('plunged', 'captured — crossed the horizon');
+    } else {
+      const [kind, label] = classifyPoint(p, orbit.rUnstable);
+      setStatus(kind, label);
+    }
+  }
+
+  // ---------- drawing: orbit stage ----------
+  function drawStage(){
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    // background vignette
+    const grd = ctx.createRadialGradient(W/2,H/2, 10, W/2,H/2, Math.max(W,H)*0.7);
+    grd.addColorStop(0, '#0b0d17');
+    grd.addColorStop(1, '#06070d');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0,0,W,H);
+
+    if (!orbit){
+      ctx.fillStyle = 'var(--ink-faint)';
+      ctx.fillStyle = '#5c5f78';
+      ctx.font = '13px monospace';
+      ctx.fillText('increase L or ε — this combination has no valid orbit', 20, H/2);
+      return;
+    }
+
+    const cx = W/2, cy = H/2;
+    const rMax = Math.max(orbit.rMax, R_ISCO) * 1.12;
+    const scale = (Math.min(W,H)/2 - 24) / rMax;
+
+    function toXY(r, phi){
+      return [cx + r*scale*Math.cos(phi), cy + r*scale*Math.sin(phi)];
+    }
+
+    // ISCO ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, R_ISCO*scale, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(180,182,200,0.18)';
+    ctx.setLineDash([2,5]);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // photon sphere
+    ctx.beginPath();
+    ctx.arc(cx, cy, R_PHOTON*scale, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(139,143,217,0.55)';
+    ctx.setLineDash([1,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // unstable circular radius
+    ctx.beginPath();
+    ctx.arc(cx, cy, orbit.rUnstable*scale, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,138,61,0.45)';
+    ctx.setLineDash([5,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // path (full, faint)
+    ctx.beginPath();
+    for (let i=0;i<renderPts.length;i++){
+      const [x,y] = toXY(renderPts[i].r, renderPts[i].phi);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle = 'rgba(95,216,212,0.28)';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // path traveled so far (bright)
+    const upTo = Math.min(Math.floor(animIndex), renderPts.length-1);
+    ctx.beginPath();
+    for (let i=0;i<=upTo;i++){
+      const [x,y] = toXY(renderPts[i].r, renderPts[i].phi);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle = 'rgba(95,216,212,0.85)';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // event horizon
+    ctx.beginPath();
+    ctx.arc(cx, cy, R_HORIZON*scale, 0, Math.PI*2);
+    const hg = ctx.createRadialGradient(cx,cy, R_HORIZON*scale*0.2, cx,cy, R_HORIZON*scale*2.2);
+    hg.addColorStop(0, 'rgba(255,138,61,0.35)');
+    hg.addColorStop(0.35, 'rgba(255,138,61,0.10)');
+    hg.addColorStop(1, 'rgba(255,138,61,0)');
+    ctx.fillStyle = hg;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, R_HORIZON*scale, 0, Math.PI*2);
+    ctx.fillStyle = '#000';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,138,61,0.7)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // marker
+    if (renderPts.length){
+      const p = renderPts[upTo];
+      const [x,y] = toXY(p.r, p.phi);
+      ctx.beginPath();
+      ctx.arc(x,y,4.5,0,Math.PI*2);
+      ctx.fillStyle = '#fff';
+      ctx.shadowColor = '#5fd8d4';
+      ctx.shadowBlur = 12;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  // ---------- drawing: r(phi) chart ----------
+  function drawChart(){
+    const W = chartCanvas.width, H = chartCanvas.height;
+    chartCtx.clearRect(0,0,W,H);
+    chartCtx.fillStyle = '#0c0e18';
+    chartCtx.fillRect(0,0,W,H);
+
+    if (!orbit || renderPts.length < 2) return;
+
+    const pad = {l:34, r:10, t:10, b:18};
+    const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+
+    const phiMax = renderPts[renderPts.length-1].phi;
+    const rVals = renderPts.map(p=>Math.max(p.r, R_HORIZON));
+    const logMin = Math.log(R_HORIZON*0.95);
+    const logMax = Math.log(Math.max(orbit.rMax*1.08, R_ISCO*1.1));
+
+    function xOf(phi){ return pad.l + (phi/phiMax)*plotW; }
+    function yOf(r){ return pad.t + plotH - ( (Math.log(Math.max(r,R_HORIZON*0.95)) - logMin) / (logMax-logMin) ) * plotH; }
+
+    // reference lines
+    function hline(rv, color){
+      const y = yOf(rv);
+      chartCtx.beginPath();
+      chartCtx.moveTo(pad.l, y); chartCtx.lineTo(W-pad.r, y);
+      chartCtx.strokeStyle = color;
+      chartCtx.setLineDash([2,3]);
+      chartCtx.lineWidth = 1;
+      chartCtx.stroke();
+      chartCtx.setLineDash([]);
+    }
+    hline(orbit.rUnstable, 'rgba(255,138,61,0.5)');
+    hline(R_PHOTON, 'rgba(139,143,217,0.4)');
+
+    // curve
+    chartCtx.beginPath();
+    for (let i=0;i<renderPts.length;i++){
+      const x = xOf(renderPts[i].phi), y = yOf(renderPts[i].r);
+      if (i===0) chartCtx.moveTo(x,y); else chartCtx.lineTo(x,y);
+    }
+    chartCtx.strokeStyle = '#5fd8d4';
+    chartCtx.lineWidth = 1.4;
+    chartCtx.stroke();
+
+    // traveled portion
+    const upTo = Math.min(Math.floor(animIndex), renderPts.length-1);
+    chartCtx.beginPath();
+    for (let i=0;i<=upTo;i++){
+      const x = xOf(renderPts[i].phi), y = yOf(renderPts[i].r);
+      if (i===0) chartCtx.moveTo(x,y); else chartCtx.lineTo(x,y);
+    }
+    chartCtx.strokeStyle = '#ffffff';
+    chartCtx.lineWidth = 1.3;
+    chartCtx.stroke();
+
+    // axis labels
+    chartCtx.fillStyle = '#5c5f78';
+    chartCtx.font = '10px monospace';
+    chartCtx.fillText('r=' + orbit.rUnstable.toFixed(1), 2, yOf(orbit.rUnstable)-3);
+    chartCtx.fillText('0', pad.l-2, H-4);
+    chartCtx.fillText((phiMax/(2*Math.PI)).toFixed(0)+' rev', W-pad.r-34, H-4);
+  }
+
+  // ---------- animation loop ----------
+  function tick(ts){
+    if (!playing) return;
+    if (lastTs === null) lastTs = ts;
+    const dt = (ts - lastTs)/1000;
+    lastTs = ts;
+
+    const speed = parseFloat(speedSlider.value);
+    const advance = dt * speed * (renderPts.length / 9); // points per second scaling
+    animIndex = Math.min(renderPts.length - 1, animIndex + advance);
+
+    drawStage();
+    drawChart();
+    updateReadouts(Math.floor(animIndex));
+
+    if (animIndex >= renderPts.length - 1){
+      playing = false;
+      btnPlay.textContent = 'replay';
+      lastTs = null;
+      return;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- events ----------
+  lSlider.addEventListener('input', recompute);
+  epsSlider.addEventListener('input', recompute);
+  speedSlider.addEventListener('input', ()=>{ speedVal.textContent = parseFloat(speedSlider.value).toFixed(1)+'×'; });
+
+  btnPlay.addEventListener('click', ()=>{
+    if (!orbit || renderPts.length===0) return;
+    if (animIndex >= renderPts.length-1) animIndex = 0;
+    playing = !playing;
+    btnPlay.textContent = playing ? 'pause' : 'play';
+    lastTs = null;
+    if (playing) requestAnimationFrame(tick);
+  });
+
+  btnStep.addEventListener('click', ()=>{
+    if (!orbit || renderPts.length===0) return;
+    playing = false; btnPlay.textContent = 'play';
+    animIndex = Math.min(renderPts.length-1, animIndex + Math.max(1, Math.floor(renderPts.length/120)));
+    drawStage(); drawChart(); updateReadouts(Math.floor(animIndex));
+  });
+
+  btnReset.addEventListener('click', ()=>{
+    playing = false; lastTs = null; animIndex = 0;
+    btnPlay.textContent = 'play';
+    drawStage(); drawChart(); updateReadouts(0);
+  });
+
+  btnPlungeToggle.addEventListener('click', ()=>{
+    plungeMode = !plungeMode;
+    recompute();
+  });
+
+  const presets = {
+    mild:   {L:3.90, eps: 0.25,  plunge:false},
+    whirl:  {L:3.75, eps: 0.02,  plunge:false},
+    tight:  {L:3.60, eps: 0.003, plunge:false},
+    plunge: {L:3.70, eps: 0.01,  plunge:true}
+  };
+  document.querySelectorAll('.presets button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const p = presets[btn.dataset.preset];
+      plungeMode = p.plunge;
+      lSlider.value = p.L;
+      epsSlider.value = Math.log10(p.eps);
+      recompute();
+    });
+  });
+
+  // keep canvas crisp
+  function fitCanvas(){
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width > 0){
+      canvas.width = Math.round(rect.width * 1.4);
+      canvas.height = Math.round(canvas.width * 0.72);
+    }
+    drawStage();
+  }
+  window.addEventListener('resize', fitCanvas);
+
+  // ---------- init ----------
+  recompute();
+  setTimeout(fitCanvas, 50);
+})();
+</script>
+</body>
+</html>
